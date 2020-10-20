@@ -1,0 +1,433 @@
+apiVersion: v1
+items:
+- apiVersion: image.openshift.io/v1
+  kind: ImageStream
+  metadata:
+    annotations:
+      description: Keeps track of changes in the application image
+      openshift.io/generated-by: OpenShiftNewApp
+    creationTimestamp: "2020-10-20T13:38:44Z"
+    generation: 1
+    labels:
+      app: nodejs-mongodb
+      template: nodejs-mongodb
+    name: nodejs-mongodb
+    namespace: kiniraj-templte
+    resourceVersion: "4957387"
+    selfLink: /apis/image.openshift.io/v1/namespaces/kiniraj-templte/imagestreams/nodejs-mongodb
+    uid: d5ef9657-6893-4da7-84c7-7771fae598a2
+  spec:
+    lookupPolicy:
+      local: false
+  status:
+    dockerImageRepository: image-registry.openshift-image-registry.svc:5000/kiniraj-templte/nodejs-mongodb
+    tags:
+    - items:
+      - created: "2020-10-20T13:39:30Z"
+        dockerImageReference: image-registry.openshift-image-registry.svc:5000/kiniraj-templte/nodejs-mongodb@sha256:660e4808e916d0c9911f51d76cbed7bbf7dfabc5c642f1a36b717b1712e3df5a
+        generation: 1
+        image: sha256:660e4808e916d0c9911f51d76cbed7bbf7dfabc5c642f1a36b717b1712e3df5a
+      tag: latest
+- apiVersion: build.openshift.io/v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: Defines how to build the application
+      openshift.io/generated-by: OpenShiftNewApp
+      template.alpha.openshift.io/wait-for-ready: "true"
+    creationTimestamp: "2020-10-20T13:38:45Z"
+    labels:
+      app: nodejs-mongodb
+      template: nodejs-mongodb
+    name: nodejs-mongodb
+    namespace: kiniraj-templte
+    resourceVersion: "4957105"
+    selfLink: /apis/build.openshift.io/v1/namespaces/kiniraj-templte/buildconfigs/nodejs-mongodb
+    uid: 6acf9de5-b77b-48f7-809d-9d42209563f4
+  spec:
+    failedBuildsHistoryLimit: 5
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: nodejs-mongodb:latest
+    postCommit:
+      script: npm test
+    resources: {}
+    runPolicy: Serial
+    source:
+      git:
+        uri: https://github.com/sclorg/nodejs-ex.git
+      type: Git
+    strategy:
+      sourceStrategy:
+        env:
+        - name: NPM_MIRROR
+          value: https://registry.npmjs.org
+        from:
+          kind: ImageStreamTag
+          name: nodejs:latest
+          namespace: openshift
+      type: Source
+    successfulBuildsHistoryLimit: 5
+    triggers:
+    - imageChange:
+        lastTriggeredImageID: image-registry.openshift-image-registry.svc:5000/openshift/nodejs@sha256:87be8d1bf03ef6cf2d050ff86ea1798a6a40f0bf238d1d8b7eadb5f45530de36
+      type: ImageChange
+    - type: ConfigChange
+    - github:
+        secret: SJrOAyvqjNkjxGdqxcg3CjWxGTABwoaO72Crkmtt
+      type: GitHub
+    - generic:
+        secret: VyYuM66Uhcx8x8EGnSARjUvmDmSqRoNkQvC3FoNg
+      type: Generic
+  status:
+    lastVersion: 1
+- apiVersion: apps.openshift.io/v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      description: Defines how to deploy the database
+      openshift.io/generated-by: OpenShiftNewApp
+      template.alpha.openshift.io/wait-for-ready: "true"
+    creationTimestamp: "2020-10-20T13:38:45Z"
+    generation: 2
+    labels:
+      app: nodejs-mongodb
+      template: nodejs-mongodb
+    name: mongodb
+    namespace: kiniraj-templte
+    resourceVersion: "4957245"
+    selfLink: /apis/apps.openshift.io/v1/namespaces/kiniraj-templte/deploymentconfigs/mongodb
+    uid: 286ddac8-6554-4664-814c-ec391f8202f0
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      name: mongodb
+    strategy:
+      activeDeadlineSeconds: 21600
+      recreateParams:
+        timeoutSeconds: 600
+      resources: {}
+      type: Recreate
+    template:
+      metadata:
+        annotations:
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          name: mongodb
+        name: mongodb
+      spec:
+        containers:
+        - env:
+          - name: MONGODB_USER
+            valueFrom:
+              secretKeyRef:
+                key: database-user
+                name: nodejs-mongodb
+          - name: MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-password
+                name: nodejs-mongodb
+          - name: MONGODB_DATABASE
+            value: njmongo
+          - name: MONGODB_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-admin-password
+                name: nodejs-mongodb
+          image: image-registry.openshift-image-registry.svc:5000/openshift/mongodb@sha256:d42c5a02ef850417ba09f857fef77668509fe60a1c45c6a134575c81207436e5
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 27017
+            timeoutSeconds: 1
+          name: mongodb
+          ports:
+          - containerPort: 27017
+            protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -i
+              - -c
+              - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
+                --eval="quit()"
+            failureThreshold: 3
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: 512Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /var/lib/mongodb/data
+            name: mongodb-data
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - emptyDir: {}
+          name: mongodb-data
+    test: false
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - mongodb
+        from:
+          kind: ImageStreamTag
+          name: mongodb:3.6
+          namespace: openshift
+        lastTriggeredImage: image-registry.openshift-image-registry.svc:5000/openshift/mongodb@sha256:d42c5a02ef850417ba09f857fef77668509fe60a1c45c6a134575c81207436e5
+      type: ImageChange
+    - type: ConfigChange
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2020-10-20T13:38:57Z"
+      lastUpdateTime: "2020-10-20T13:38:57Z"
+      message: Deployment config has minimum availability.
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2020-10-20T13:38:48Z"
+      lastUpdateTime: "2020-10-20T13:38:57Z"
+      message: replication controller "mongodb-1" successfully rolled out
+      reason: NewReplicationControllerAvailable
+      status: "True"
+      type: Progressing
+    details:
+      causes:
+      - type: ConfigChange
+      message: config change
+    latestVersion: 1
+    observedGeneration: 2
+    readyReplicas: 1
+    replicas: 1
+    unavailableReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps.openshift.io/v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      description: Defines how to deploy the application server
+      openshift.io/generated-by: OpenShiftNewApp
+      template.alpha.openshift.io/wait-for-ready: "true"
+    creationTimestamp: "2020-10-20T13:38:45Z"
+    generation: 1
+    labels:
+      app: nodejs-mongodb
+      template: nodejs-mongodb
+    name: nodejs-mongodb
+    namespace: kiniraj-templte
+    resourceVersion: "4957108"
+    selfLink: /apis/apps.openshift.io/v1/namespaces/kiniraj-templte/deploymentconfigs/nodejs-mongodb
+    uid: cf2d3d50-a68c-40aa-bd69-6be2c579d994
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      name: nodejs-mongodb
+    strategy:
+      activeDeadlineSeconds: 21600
+      recreateParams:
+        timeoutSeconds: 600
+      resources: {}
+      type: Recreate
+    template:
+      metadata:
+        annotations:
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          name: nodejs-mongodb
+        name: nodejs-mongodb
+      spec:
+        containers:
+        - env:
+          - name: DATABASE_SERVICE_NAME
+            value: mongodb
+          - name: MONGODB_USER
+            valueFrom:
+              secretKeyRef:
+                key: database-user
+                name: nodejs-mongodb
+          - name: MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-password
+                name: nodejs-mongodb
+          - name: MONGODB_DATABASE
+            value: njmongo
+          - name: MONGODB_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-admin-password
+                name: nodejs-mongodb
+          image: ' '
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          name: nodejs-mongodb
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 512Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+    test: false
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - nodejs-mongodb
+        from:
+          kind: ImageStreamTag
+          name: nodejs-mongodb:3.6
+          namespace: kiniraj-templte
+      type: ImageChange
+    - type: ConfigChange
+  status:
+    availableReplicas: 0
+    conditions:
+    - lastTransitionTime: "2020-10-20T13:38:45Z"
+      lastUpdateTime: "2020-10-20T13:38:45Z"
+      message: Deployment config does not have minimum availability.
+      status: "False"
+      type: Available
+    latestVersion: 0
+    observedGeneration: 1
+    replicas: 0
+    unavailableReplicas: 0
+    updatedReplicas: 0
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: Exposes the database server
+      openshift.io/generated-by: OpenShiftNewApp
+    creationTimestamp: "2020-10-20T13:38:45Z"
+    labels:
+      app: nodejs-mongodb
+      template: nodejs-mongodb
+    name: mongodb
+    namespace: kiniraj-templte
+    resourceVersion: "4957103"
+    selfLink: /api/v1/namespaces/kiniraj-templte/services/mongodb
+    uid: a9e83b7b-60f3-4355-b431-00210ca3e0ad
+  spec:
+    clusterIP: 172.21.152.12
+    ports:
+    - name: mongodb
+      port: 27017
+      protocol: TCP
+      targetPort: 27017
+    selector:
+      name: mongodb
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: Exposes and load balances the application pods
+      openshift.io/generated-by: OpenShiftNewApp
+      service.alpha.openshift.io/dependencies: '[{"name": "mongodb", "kind": "Service"}]'
+    creationTimestamp: "2020-10-20T13:38:44Z"
+    labels:
+      app: nodejs-mongodb
+      template: nodejs-mongodb
+    name: nodejs-mongodb
+    namespace: kiniraj-templte
+    resourceVersion: "4957092"
+    selfLink: /api/v1/namespaces/kiniraj-templte/services/nodejs-mongodb
+    uid: 74ed301b-3519-4229-8278-354f316d0dc1
+  spec:
+    clusterIP: 172.21.93.131
+    ports:
+    - name: web
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      name: nodejs-mongodb
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/generated-by: OpenShiftNewApp
+      openshift.io/host.generated: "true"
+    creationTimestamp: "2020-10-20T13:38:44Z"
+    labels:
+      app: nodejs-mongodb
+      template: nodejs-mongodb
+    name: nodejs-mongodb
+    namespace: kiniraj-templte
+    resourceVersion: "4957096"
+    selfLink: /apis/route.openshift.io/v1/namespaces/kiniraj-templte/routes/nodejs-mongodb
+    uid: c62a0ba0-4aef-4e2b-8547-05c092008f71
+  spec:
+    host: nodejs-mongodb-kiniraj-templte.ose-internal-1602064171-f72ef11f3ab089a8c677044eb28292cd-0000.sjc03.containers.appdomain.cloud
+    to:
+      kind: Service
+      name: nodejs-mongodb
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+    - conditions:
+      - lastTransitionTime: "2020-10-20T13:38:45Z"
+        status: "True"
+        type: Admitted
+      host: nodejs-mongodb-kiniraj-templte.ose-internal-1602064171-f72ef11f3ab089a8c677044eb28292cd-0000.sjc03.containers.appdomain.cloud
+      routerCanonicalHostname: ose-internal-1602064171-f72ef11f3ab089a8c677044eb28292cd-0000.sjc03.containers.appdomain.cloud
+      routerName: default
+      wildcardPolicy: None
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
